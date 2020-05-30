@@ -99,15 +99,6 @@ static int fdt_resv_memory_update_node(void *fdt, unsigned long addr,
 	if (subnode < 0)
 		return subnode;
 
-	/*
-	 * Tell operating system not to create a virtual
-	 * mapping of the region as part of its standard
-	 * mapping of system memory.
-	 */
-	err = fdt_setprop_empty(fdt, subnode, "no-map");
-	if (err < 0)
-		return err;
-
 	/* encode the <reg> property value */
 	val = reg;
 	if (na > 1)
