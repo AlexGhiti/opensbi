@@ -70,8 +70,10 @@ void fdt_plic_fixup(void *fdt, const char *compat)
 
 static int fdt_resv_memory_update_node(void *fdt, unsigned long addr,
 				       unsigned long size, int index,
-				       int parent)
+				       int parent, bool no_map)
 {
+	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+	const struct sbi_platform *plat = sbi_platform_ptr(scratch);
 	int na = fdt_address_cells(fdt, 0);
 	int ns = fdt_size_cells(fdt, 0);
 	fdt32_t addr_high, addr_low;
@@ -100,13 +102,20 @@ static int fdt_resv_memory_update_node(void *fdt, unsigned long addr,
 		return subnode;
 
 	/*
-	 * Tell operating system not to create a virtual
-	 * mapping of the region as part of its standard
-	 * mapping of system memory.
+	 * SiFive Freedom U540 has a bug that prevents an OS to map
+	 * a PMP protected region, so always add the no-map attribute
+	 * on this platform.
 	 */
-	err = fdt_setprop_empty(fdt, subnode, "no-map");
-	if (err < 0)
-		return err;
+	if (no_map || !strcmp(plat->name, "SiFive Freedom U540")) {
+		/*
+		 * Tell operating system not to create a virtual
+		 * mapping of the region as part of its standard
+		 * mapping of system memory.
+		 */
+		err = fdt_setprop_empty(fdt, subnode, "no-map");
+		if (err < 0)
+			return err;
+	}
 
 	/* encode the <reg> property value */
 	val = reg;
@@ -199,7 +208,8 @@ int fdt_reserved_memory_fixup(void *fdt)
 		 */
 		addr = scratch->fw_start & ~(scratch->fw_size - 1UL);
 		size = (1UL << log2roundup(scratch->fw_size));
-		return fdt_resv_memory_update_node(fdt, addr, size, 0, parent);
+		return fdt_resv_memory_update_node(fdt, addr, size,
+						   0, parent, true);
 	}
 
 	for (i = 0, j = 0; i < sbi_hart_pmp_count(scratch); i++) {
@@ -211,7 +221,7 @@ int fdt_reserved_memory_fixup(void *fdt)
 		if (prot & (PMP_R | PMP_W | PMP_X))
 			continue;
 
-		fdt_resv_memory_update_node(fdt, addr, size, j, parent);
+		fdt_resv_memory_update_node(fdt, addr, size, j, parent, false);
 		j++;
 	}
 
