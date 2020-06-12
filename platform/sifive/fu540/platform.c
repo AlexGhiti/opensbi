@@ -63,6 +63,13 @@ static void fu540_modify_dt(void *fdt)
 	fdt_cpu_fixup(fdt);
 
 	fdt_fixups(fdt);
+
+	/*
+	 * SiFive Freedom U540 has a bug that prevents an OS to map
+	 * a PMP protected region, so always add the no-map attribute
+	 * on this platform.
+	 */
+	fdt_reserved_memory_nomap_fixup(fdt);
 }
 
 static int fu540_final_init(bool cold_boot)
